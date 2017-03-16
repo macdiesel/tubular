@@ -231,6 +231,12 @@ class GitHubAPI(object):
         Calls GitHub's '<commit>/statuses' endpoint for a given commit. See
         https://developer.github.com/v3/repos/statuses/#get-the-combined-status-for-a-specific-ref
 
+        Arguments:
+            commit: One of:
+                - string (interprets as git SHA and fetches commit)
+                - GitCommit (uses the accompanying git SHA and fetches commit)
+                - Commit (directly gets the combined status)
+
         Returns:
             github.CommitCombinedStatus.CommitCombinedStatus
 
@@ -246,6 +252,22 @@ class GitHubAPI(object):
 
         return commit.get_combined_status()
 
+    def check_commit_test_status(self, commit_sha):
+        """
+        Given a commit SHA, query the current combined status of the commit's tests.
+
+        Arguments:
+            commit_sha (str): Commit SHA to check.
+
+        Returns:
+            True if all tests have passed successfully, else False.
+
+        Raises:
+            github.GithubException.GithubException: If the response fails.
+            github.GithubException.UnknownObjectException: If the SHA does not exist
+        """
+        return self._is_commit_successful(commit_sha)
+
     def check_pull_request_test_status(self, pr_number):
         """
         Given a PR number, query the current combined status of the PR's tests.
@@ -258,11 +280,11 @@ class GitHubAPI(object):
 
         Raises:
             github.GithubException.GithubException: If the response fails.
-            github.GithubException.UnknownObjectException: If the branch does not exist
+            github.GithubException.UnknownObjectException: If the PR does not exist
         """
-        return self.get_commit_combined_statuses(
+        return self._is_commit_successful(
             self.get_head_commit_from_pull_request(pr_number)
-        ).state.lower() == 'success'
+        )
 
     @backoff.on_exception(
         backoff.expo,
@@ -539,7 +561,7 @@ class GitHubAPI(object):
             head='refs/heads/{}'.format(compare_branch)
         ).status == 'diverged'
 
-    def is_commit_successful(self, sha):
+    def _is_commit_successful(self, sha):
         """
         Returns whether the passed commit has passed all its tests.
         Ensures there is at least one status update so that
@@ -577,7 +599,7 @@ class GitHubAPI(object):
 
         result = None
         for commit in commits:
-            if self.is_commit_successful(commit.sha):
+            if self._is_commit_successful(commit.sha):
                 result = commit
                 return result
 
