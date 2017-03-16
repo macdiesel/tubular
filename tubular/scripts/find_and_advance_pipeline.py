@@ -9,6 +9,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from os import path
+import os
+import io
 import sys
 import logging
 import yaml
@@ -67,9 +69,7 @@ LOG = logging.getLogger(__name__)
 )
 @click.option(
     '--out_file',
-    help=u"File location to which to write pipeline advancement information.",
-    type=click.File(mode='w'),
-    default=sys.stdout,
+    help=u"File path to which to write pipeline advancement information (optional).",
 )
 def find_and_advance_pipeline(
         gocd_user, gocd_password, gocd_url, hipchat_token, hipchat_channel, pipeline, stage, relative_dt, out_file
@@ -97,7 +97,12 @@ def find_and_advance_pipeline(
     }
     LOG.info('Successfully advanced this pipeline: %s', advance_info)
 
-    yaml.safe_dump(advance_info, stream=out_file)
+    if out_file:
+        directory = os.path.dirname(out_file)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        with io.open(out_file, 'w') as artifact:
+            yaml.safe_dump(advance_info, stream=artifact)
 
     if hipchat_token:
         submit_hipchat_message(
